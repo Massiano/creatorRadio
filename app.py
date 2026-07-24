@@ -107,5 +107,46 @@ def get_songs_batch():
             
     return jsonify(results)
 
+
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)
+
+##_____________________SUNO EXTENSION ENDPOINTS___________________________
+# In-memory database mock (replace with SQLite/SQLAlchemy for persistence)
+messages_db = []
+message_counter = 0
+
+@app.route('/api/messages', methods=['GET', 'POST'])
+def handle_messages():
+    global message_counter
+    
+    if request.method == 'POST':
+        data = request.json or {}
+        # Handle single message or a batch of queued messages
+        queued_texts = data.get('messages', [])
+        if isinstance(queued_texts, str):
+            queued_texts = [queued_texts]
+            
+        saved_messages = []
+        for text in queued_texts:
+            if text.strip():
+                message_counter += 1
+                msg = {"id": message_counter, "text": text, "sender": "user"}
+                messages_db.append(msg)
+                saved_messages.append(msg)
+                
+        return jsonify({"status": "ok", "saved": saved_messages})
+
+    else:
+        # GET: Fetch messages newer than the client's last known ID
+        since_id = int(request.args.get('since_id', 0))
+        fresh_messages = [m for m in messages_db if m["id"] > since_id]
+        return jsonify({"messages": fresh_messages})
+##_____________________SUNO EXTENSION ENDPOINTS___________________________
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
