@@ -3,9 +3,14 @@ import json as _json
 import urllib.request
 import urllib.error
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS globally for all routes
+
 USER_AGENT = "Mozilla/5.0 (compatible; suno-meta-fetcher/1.0)"
+
+# ==================== SUNO SONG FETCHER LOGIC ====================
 
 def unescape_json_string(raw):
     try:
@@ -30,7 +35,6 @@ def parse_suno_track(track_id):
     with urllib.request.urlopen(req, timeout=15) as resp:
         html = resp.read().decode("utf-8", errors="replace")
 
-    # Parse RSC chunks
     chunks = []
     for m in re.finditer(r'self\.__next_f\.push\(\[\d+,\s*"((?:[^"\\]|\\.)*)"\]\)', html):
         chunks.append(unescape_json_string(m.group(1)))
@@ -49,7 +53,6 @@ def parse_suno_track(track_id):
 
     id_match = re.search(r'"id":"([0-9a-f-]{8,})"', window, re.I)
 
-    # Fallback Meta tags
     def meta(prop):
         m = re.search(r'<meta[^>]+property=["\']' + re.escape(prop) + r'["\'][^>]+content=["\']([^"\']*)["\']', html, re.I)
         return m.group(1) if m else None
@@ -78,7 +81,8 @@ def index():
         "status": "online",
         "endpoints": {
             "Single Song": "/api/song/<uuid>",
-            "Batch List": "/api/songs?ids=uuid1,uuid2"
+            "Batch List": "/api/songs?ids=uuid1,uuid2",
+            "Chat Polling": "/api/messages"
         }
     })
 
@@ -99,7 +103,7 @@ def get_songs_batch():
     track_ids = [i.strip() for i in ids_param.split(',') if i.strip()]
     results = []
     
-    for tid in track_ids[:20]: # Limit max batch size to protect performance
+    for tid in track_ids[:20]:
         try:
             results.append(parse_suno_track(tid))
         except Exception as e:
@@ -108,14 +112,8 @@ def get_songs_batch():
     return jsonify(results)
 
 
-from flask import Flask, jsonify, request
-from flask_cors import CORS
+# ==================== SUNO EXTENSION CHAT ENDPOINTS ====================
 
-app = Flask(__name__)
-CORS(app)
-
-##_____________________SUNO EXTENSION ENDPOINTS___________________________
-# In-memory database mock (replace with SQLite/SQLAlchemy for persistence)
 messages_db = []
 message_counter = 0
 
@@ -125,27 +123,30 @@ def handle_messages():
     
     if request.method == 'POST':
         data = request.json or {}
-        # Handle single message or a batch of queued messages
-        queued_texts = data.get('messages', [])
-        if isinstance(queued_texts, str):
-            queued_texts = [queued_texts]
+        queued_items = data.get('messages', [])
             
         saved_messages = []
-        for text in queued_texts:
-            if text.strip():
+        for item in queued_items:
+            # Handle item whether it's sent as an object payload or a legacy string
+            if isinstance(item, dict):
+                text = item.get("text", "").strip()
+                sender = item.get("sender", "Anonymous").strip()
+            else:
+                text = str(item).strip()
+                sender = "Anonymous"
+                
+            if text:
                 message_counter += 1
-                msg = {"id": message_counter, "text": text, "sender": "user"}
+                msg = {"id": message_counter, "text": text, "sender": sender}
                 messages_db.append(msg)
                 saved_messages.append(msg)
                 
         return jsonify({"status": "ok", "saved": saved_messages})
 
     else:
-        # GET: Fetch messages newer than the client's last known ID
         since_id = int(request.args.get('since_id', 0))
         fresh_messages = [m for m in messages_db if m["id"] > since_id]
         return jsonify({"messages": fresh_messages})
-##_____________________SUNO EXTENSION ENDPOINTS___________________________
 
 
 if __name__ == '__main__':
