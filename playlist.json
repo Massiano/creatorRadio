@@ -29,18 +29,15 @@
     {"id": "ec195253-ae42-4f74-b530-55950ea4817c", "title": "Sweaters", "audio_url": "https://cdn1.suno.ai/ec195253-ae42-4f74-b530-55950ea4817c.mp3", "duration": 237},
     {"id": "f86c6a36-d206-40c2-ba97-17bb6660040f", "title": "TONE", "audio_url": "https://cdn1.suno.ai/f86c6a36-d206-40c2-ba97-17bb6660040f.mp3", "duration": 175},
     {"id": "d71032ec-42ac-46fd-8ba1-dba168a9d605", "title": "Lets Be Careless-Cassy", "audio_url": "https://cdn1.suno.ai/d71032ec-42ac-46fd-8ba1-dba168a9d605.mp3", "duration": 184},
-    {"id": "4c3ad519-d3d7-4d0a-b420-c94303287087", "title": "Repetition- MADISON", "audio_url": "https://cdn1.suno.ai/4c3ad519-d3d7-4d0a-b420-c94303287087.mp3", "duration": 0},
-    {"id": "9fecb6e5-1e5d-4258-af3d-2e4415378be1", "title": "Park Rides", "audio_url": "https://cdn1.suno.ai/9fecb6e5-1e5d-4258-af3d-2e4415378be1.mp3", "duration": 0},
-    {"id": "882c0f04-0e01-4822-bbce-0891a5acb6a3", "title": "Take Control", "audio_url": "https://cdn1.suno.ai/882c0f04-0e01-4822-bbce-0891a5acb6a3.mp3", "duration": 0},
-    {"id": "5c9ca66c-e578-4817-9911-86c13681b303", "title": "En mi mente", "audio_url": "https://cdn1.suno.ai/5c9ca66c-e578-4817-9911-86c13681b303.mp3", "duration": 0},
-    {"id": "aabddf7c-ce0b-467f-9ae2-05c031859bfa", "title": "GOOD BOY", "audio_url": "https://cdn1.suno.ai/aabddf7c-ce0b-467f-9ae2-05c031859bfa.mp3", "duration": 0},
-    {"id": "e24504dd-7a5a-48df-923e-4f8d9e95a5e2", "title": "Living My Teenage Dream", "audio_url": "https://cdn1.suno.ai/e24504dd-7a5a-48df-923e-4f8d9e95a5e2.mp3", "duration": 0},
-    {"id": "38b4820f-cc6d-4f1e-82dd-a0d46813a1cb", "title": "Twister-ver 2", "audio_url": "https://cdn1.suno.ai/38b4820f-cc6d-4f1e-82dd-a0d46813a1cb.mp3", "duration": 0},
-    {"id": "1f17c53b-455e-4c08-902d-1da345133fba", "title": "Say Your Name, Say My Name [STTZ 90s Event - 1st Round]", "audio_url": "https://cdn1.suno.ai/1f17c53b-455e-4c08-902d-1da345133fba.mp3", "duration": 0},
-    {"id": "7ed1da99-dedd-4b6e-8066-172167f3d5d7", "title": "Bop On-Female Ver 1", "audio_url": "https://cdn1.suno.ai/7ed1da99-dedd-4b6e-8066-172167f3d5d7.mp3", "duration": 0},
-    {"id": "872e0659-aa8a-41bc-933c-9a9e99676e4d", "title": "Breaking News Volume 2 - The Files", "audio_url": "https://cdn1.suno.ai/872e0659-aa8a-41bc-933c-9a9e99676e4d.mp3", "duration": 0},
-    {"id": "ee0f6f28-12ec-4052-a6d1-3452da5a0c7f", "title": "Scream- MADISON", "audio_url": "https://cdn1.suno.ai/ee0f6f28-12ec-4052-a6d1-3452da5a0c7f.mp3", "duration": 0},
-    {"id": "2a75ebec-2ced-4d3c-a676-bfedd578daa3", "title": "Midnight Roads", "audio_url": "https://cdn1.suno.ai/2a75ebec-2ced-4d3c-a676-bfedd578daa3.mp3", "duration": 0},
-    {"id": "e6714387-097e-45a9-a97f-47395e801f4e", "title": "River Clay (Cover)", "audio_url": "https://cdn1.suno.ai/e6714387-097e-45a9-a97f-47395e801f4e.mp3", "duration": 0}
+
+    {"id":"9fecb6e5-1e5d-4258-af3d-2e4415378be1","title":"Park Rides","audio_url":"https://cdn1.suno.ai/9fecb6e5-1e5d-4258-af3d-2e4415378be1.mp3","duration":119},
+    {"id":"882c0f04-0e01-4822-bbce-0891a5acb6a3","title":"Take Control","audio_url":"https://cdn1.suno.ai/882c0f04-0e01-4822-bbce-0891a5acb6a3.mp3","duration":184},
+    {"id":"5c9ca66c-e578-4817-9911-86c13681b303","title":"En mi mente","audio_url":"https://cdn1.suno.ai/5c9ca66c-e578-4817-9911-86c13681b303.mp3","duration":380},
+    {"id":"aabddf7c-ce0b-467f-9ae2-05c031859bfa","title":"GOOD BOY","audio_url":"https://cdn1.suno.ai/aabddf7c-ce0b-467f-9ae2-05c031859bfa.mp3","duration":226},
+    {"id":"e24504dd-7a5a-48df-923e-4f8d9e95a5e2","title":"Living My Teenage Dream","audio_url":"https://cdn1.suno.ai/e24504dd-7a5a-48df-923e-4f8d9e95a5e2.mp3","duration":179},
+    {"id":"1f17c53b-455e-4c08-902d-1da345133fba","title":"Say Your Name, Say My Name [STTZ 90s Event - 1st Round]","audio_url":"https://cdn1.suno.ai/1f17c53b-455e-4c08-902d-1da345133fba.mp3","duration":262},
+    {"id":"872e0659-aa8a-41bc-933c-9a9e99676e4d","title":"Breaking News Volume 2 - The Files","audio_url":"https://cdn1.suno.ai/872e0659-aa8a-41bc-933c-9a9e99676e4d.mp3","duration":253},
+    {"id":"2a75ebec-2ced-4d3c-a676-bfedd578daa3","title":"Midnight Roads","audio_url":"https://cdn1.suno.ai/2a75ebec-2ced-4d3c-a676-bfedd578daa3.mp3","duration":200},
+    {"id":"e6714387-097e-45a9-a97f-47395e801f4e","title":"River Clay (Cover)","audio_url":"https://cdn1.suno.ai/e6714387-097e-45a9-a97f-47395e801f4e.mp3","duration":228}
   ]
 }
