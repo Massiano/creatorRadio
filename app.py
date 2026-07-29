@@ -1,4 +1,7 @@
 import re
+import os
+import time
+import hashlib
 import json as _json
 import urllib.request
 import urllib.error
@@ -82,7 +85,8 @@ def index():
         "endpoints": {
             "Single Song": "/api/song/<uuid>",
             "Batch List": "/api/songs?ids=uuid1,uuid2",
-            "Chat Polling": "/api/messages"
+            "Chat Polling": "/api/messages",
+            "Radio Polling": "/api/radio?schedule_version=<version>",
         }
     })
 
@@ -147,6 +151,51 @@ def handle_messages():
         since_id = int(request.args.get('since_id', 0))
         fresh_messages = [m for m in messages_db if m["id"] > since_id]
         return jsonify({"messages": fresh_messages})
+
+
+# ==================== RADIO PLAYLIST (static file, no network calls at request time) ====================
+
+PLAYLIST_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "playlist.json")
+LOOKAHEAD_TRACKS = 2  # how many "up next" entries the poll response includes
+ANCHOR_EPOCH = 0      # fixed reference point (unix epoch) so the schedule survives restarts/deploys unchanged
+
+def load_playlist():
+    # re-reads playlist.json fresh each call so an edited file is picked up without a restart; cheap since it only runs on startup + whenever schedule_version is stale
+    with open(PLAYLIST_PATH, "r", encoding="utf-8") as f:
+        raw = f.read()
+    tracks = _json.loads(raw)["tracks"]
+    version = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12]  # derived from file content, so it changes automatically when playlist.json is edited
+    return tracks, sum(t["duration"] for t in tracks), version
+
+def compute_schedule(tracks, total_duration, now, lookahead=LOOKAHEAD_TRACKS):
+    elapsed = (now - ANCHOR_EPOCH) % total_duration
+    cumulative, current_index = 0, 0
+    for i, t in enumerate(tracks):
+        if cumulative + t["duration"] > elapsed:
+            current_index = i
+            break
+        cumulative += t["duration"]
+    else:
+        current_index, cumulative = len(tracks) - 1, cumulative - tracks[-1]["duration"]
+
+    started_at, entries = now - (elapsed - cumulative), []
+    for offset in range(1 + lookahead):
+        t = tracks[(current_index + offset) % len(tracks)]
+        entries.append({"id": t["id"], "title": t["title"], "audio_url": t["audio_url"], "duration": t["duration"], "starts_at": started_at})
+        started_at += t["duration"]
+
+    return {"current": entries[0], "up_next": entries[1:]}
+
+@app.route('/api/radio', methods=['GET'])
+def get_radio():
+    tracks, total_duration, version = load_playlist()
+    now = time.time()
+
+    payload = {"server_time_now": now, "schedule_version": version}
+    if request.args.get('schedule_version') != version:  # only send the (tiny) track list when the client is stale
+        payload.update(compute_schedule(tracks, total_duration, now))
+
+    return jsonify(payload)
 
 
 if __name__ == '__main__':
