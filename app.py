@@ -107,10 +107,19 @@ def compute_schedule(tracks, total_duration, now, skip_offset, lookahead=LOOKAHE
 
 
 # ==================== ROUTES ====================
+import sys, platform
 @app.route("/", methods=["GET"])
 def index():
-    return jsonify({"status": "ok", "service": "Creator Radio Backend"})
-
+    now = time.time()
+    try:
+        tracks, total_duration, version = load_playlist()
+        playlist_status = {"status": "ok", "file_path": PLAYLIST_PATH, "exists": os.path.exists(PLAYLIST_PATH), "track_count": len(tracks), "total_duration_sec": total_duration, "total_duration_formatted": f"{int(total_duration // 60)}m {int(total_duration % 60)}s", "schedule_version": version, "last_modified": time.ctime(os.path.getmtime(PLAYLIST_PATH)) if os.path.exists(PLAYLIST_PATH) else None}
+    except Exception as e:
+        playlist_status = {"status": "error", "file_path": PLAYLIST_PATH, "exists": os.path.exists(PLAYLIST_PATH), "error_message": str(e)}
+    skip_offset, skip_counter = state.snapshot()
+    debug_payload = {"service": "Creator Radio Backend", "status": "ok" if playlist_status.get("status") == "ok" else "degraded", "timestamp": {"epoch": now, "iso_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))}, "radio_state": {"skip_offset_seconds": skip_offset, "total_skips_applied": skip_counter, "anchor_epoch": ANCHOR_EPOCH}, "playlist_health": playlist_status, "request_debug": {"remote_addr": request.remote_addr, "user_agent": request.headers.get("User-Agent"), "host": request.host, "scheme": request.scheme, "query_params": dict(request.args)}, "environment": {"python_version": sys.version.split()[0], "platform": platform.platform(), "port": int(os.environ.get("PORT", 5000)), "flask_env": os.environ.get("FLASK_ENV", "production")}}
+    return jsonify(debug_payload), (200 if playlist_status.get("status") == "ok" else 503)
+    
 
 @app.route("/api/radio", methods=["GET"])
 def get_radio():
