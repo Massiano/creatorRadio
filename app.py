@@ -1,8 +1,4 @@
-import hashlib
-import json
-import os
-import threading
-import time
+import hashlib, json, os, threading, time
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
@@ -10,9 +6,7 @@ app = Flask(__name__)
 CORS(app)  # Enables CORS for cross-origin requests from frontend
 
 # ==================== RADIO STATE & CONFIG ====================
-PLAYLIST_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "playlist.json"
-)
+PLAYLIST_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "playlist.json")
 LOOKAHEAD_TRACKS = 2
 ANCHOR_EPOCH = 0
 
@@ -72,8 +66,7 @@ class PlaylistCache:
                 if not tracks or sum(t["duration"] for t in tracks) <= 0:
                     raise PlaylistError("playlist has no tracks with positive duration")
 
-                self._tracks = tracks
-                self._total_duration = sum(t["duration"] for t in tracks)
+                self._tracks, self._total_duration = tracks, sum(t["duration"] for t in tracks)
                 self._base_version = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12]
                 self._mtime = mtime
 
@@ -87,8 +80,7 @@ playlist_cache = PlaylistCache(PLAYLIST_PATH)
 def load_playlist():
     tracks, total_duration, base_version = playlist_cache.load()
     _, skip_counter = state.snapshot()
-    version = f"{base_version}-v{skip_counter}"
-    return tracks, total_duration, version
+    return tracks, total_duration, f"{base_version}-v{skip_counter}"
 
 
 def find_current_track(tracks, total_duration, elapsed):
@@ -97,8 +89,7 @@ def find_current_track(tracks, total_duration, elapsed):
         if elapsed < cumulative + t["duration"]:
             return i, elapsed - cumulative
         cumulative += t["duration"]
-    # only reached via float rounding at the exact boundary
-    return len(tracks) - 1, 0.0
+    return len(tracks) - 1, 0.0  # only reached via float rounding at the exact boundary
 
 
 def compute_schedule(tracks, total_duration, now, skip_offset, lookahead=LOOKAHEAD_TRACKS):
@@ -109,12 +100,11 @@ def compute_schedule(tracks, total_duration, now, skip_offset, lookahead=LOOKAHE
     started_at, entries = now - time_into_track, []
     for offset in range(1 + lookahead):
         t = tracks[(current_index + offset) % len(tracks)]
-        entries.append({
-            "id": t["id"], "title": t["title"], "audio_url": t["audio_url"],
-            "duration": t["duration"], "starts_at": started_at,
-        })
+        entries.append({"id": t["id"], "title": t["title"], "audio_url": t["audio_url"], "duration": t["duration"], "starts_at": started_at})
         started_at += t["duration"]
+
     return {"current": entries[0], "up_next": entries[1:], "time_into_track": time_into_track}
+
 
 # ==================== ROUTES ====================
 @app.route("/", methods=["GET"])
@@ -139,8 +129,7 @@ def get_radio():
     return jsonify(payload)
 
 
-# NOTE: unauthenticated for now (skips are global/shared across all listeners) —
-# routed under an unguessable path as a stopgap until real auth is added.
+# NOTE: unauthenticated for now (skips are global/shared across all listeners) — routed under an unguessable path as a stopgap until real auth is added.
 @app.route("/api/radio/skip243756", methods=["POST"])
 def skip_radio_track():
     try:
@@ -151,13 +140,11 @@ def skip_radio_track():
     skip_offset, _ = state.snapshot()
     now = time.time()
     current = compute_schedule(tracks, total_duration, now, skip_offset)
-    remaining = current["current"]["duration"] - current["time_into_track"]
-    state.apply_skip(remaining)
+    state.apply_skip(current["current"]["duration"] - current["time_into_track"])
 
     return get_radio()
 
 
 # ==================== ENTRY POINT ====================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
