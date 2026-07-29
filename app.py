@@ -198,5 +198,20 @@ def get_radio():
     return jsonify(payload)
 
 
+@app.route("/api/radio/skip", methods=["POST"])
+def skip_radio_track():
+    global skip_offset, skip_counter
+
+    tracks, total_duration, _ = load_playlist()
+    now = time.time()
+
+    current_track = compute_schedule(tracks, total_duration, now)["current"]
+
+    skip_offset += current_track["duration"]
+    skip_counter += 1
+
+    return get_radio()
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
