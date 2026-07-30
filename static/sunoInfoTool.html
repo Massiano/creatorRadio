@@ -1,1 +1,542 @@
-html
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Suno Library</title>
+<style>
+  :root { --fg:#111; --bg:#fff; --mut:#666; --line:#ccc; --accent:#0645ad; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: ui-monospace, Menlo, Consolas, monospace; font-size:13px; color:var(--fg); background:var(--bg); }
+  header { display:flex; align-items:center; gap:16px; padding:8px 12px; border-bottom:1px solid var(--line); }
+  header h1 { font-size:14px; margin:0; font-weight:bold; }
+  nav { display:flex; gap:4px; }
+  nav button { font:inherit; padding:4px 10px; border:1px solid var(--line); background:#f4f4f4; cursor:pointer; }
+  nav button.active { background:var(--fg); color:var(--bg); }
+  main { padding:12px; max-width:1100px; }
+  section { display:none; }
+  section.active { display:block; }
+  h2 { font-size:13px; margin:0 0 8px; }
+  textarea, input[type=text], select { font:inherit; width:100%; padding:5px; border:1px solid var(--line); background:#fff; color:var(--fg); }
+  textarea { min-height:90px; resize:vertical; }
+  label { display:block; font-size:12px; color:var(--mut); margin:8px 0 2px; }
+  button.act { font:inherit; padding:5px 12px; border:1px solid var(--fg); background:var(--fg); color:var(--bg); cursor:pointer; margin-top:6px; margin-right:6px;}
+  button.act.sec { background:#fff; color:var(--fg); }
+  table { border-collapse:collapse; width:100%; margin-top:8px; }
+  th, td { border:1px solid var(--line); padding:4px 6px; text-align:left; vertical-align:top; }
+  th { background:#f4f4f4; }
+  .mut { color:var(--mut); }
+  a { color:var(--accent); }
+  .log { background:#f7f7f7; border:1px solid var(--line); padding:6px; white-space:pre-wrap; max-height:220px; overflow:auto; margin-top:8px; }
+  .row { display:flex; gap:16px; flex-wrap:wrap; }
+  .row > div { flex:1; min-width:260px; }
+  .pill { display:inline-block; border:1px solid var(--line); padding:0 5px; font-size:11px; margin-right:3px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; }
+  .id { font-size:11px; word-break:break-all; }
+  hr { border:none; border-top:1px solid var(--line); margin:14px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Suno Library</h1>
+  <nav id="tabs">
+    <button data-tab="library" class="active">Library</button>
+    <button data-tab="add">Add / Batch</button>
+    <button data-tab="urls">URL Tool</button>
+    <button data-tab="playlist">Playlist</button>
+    <button data-tab="settings">Settings</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- LIBRARY -->
+  <section id="tab-library" class="active">
+    <h2>Songs (<span id="songCount">0</span>) &middot; Playlists (<span id="playlistCount">0</span>)</h2>
+    <input type="text" id="librarySearch" placeholder="filter by title / author / suno id">
+    <div id="songTable"></div>
+    <hr>
+    <button class="act sec" id="exportBtn">Export JSON</button>
+    <button class="act sec" id="importBtn">Import JSON</button>
+    <input type="file" id="importFile" accept="application/json" style="display:none">
+    <button class="act sec" id="clearBtn">Clear everything</button>
+  </section>
+
+  <!-- ADD / BATCH -->
+  <section id="tab-add">
+    <h2>Add song metadata</h2>
+    <p class="mut">Paste one clip object, a wrapped <code>{clip, log, source}</code> blob (like a page-scrape dump), or a JSON array of clips for a batch. Nothing is de-duplicated or merged across shapes &mdash; a "full" fetch and a "playlist" fetch for the same song are kept as two separate raw blobs.</p>
+    <textarea id="addInput" placeholder="paste JSON here"></textarea>
+    <label>Treat as</label>
+    <select id="addSource">
+      <option value="auto">auto-detect</option>
+      <option value="full">full clip detail</option>
+      <option value="playlist">playlist-sourced</option>
+      <option value="batch">batch (array)</option>
+      <option value="manual">manual</option>
+    </select>
+    <div><button class="act" id="addBtn">Parse &amp; add to library</button></div>
+    <div class="log" id="addLog" style="display:none"></div>
+  </section>
+
+  <!-- URL TOOL -->
+  <section id="tab-urls">
+    <h2>Resolve Suno URLs</h2>
+    <p class="mut">Accepts a bare id, a suno.com song/playlist link, a cdn1 mp3/mp4 link, a cdn2 image link, or a suno.com/s/&hellip; share link (resolved by following its redirect, since a share code isn't the song id).</p>
+    <input type="text" id="urlInput" placeholder="id, suno.com/song/..., suno.com/s/..., or a cdn url">
+    <div><button class="act" id="urlResolveBtn">Resolve</button></div>
+    <div class="grid2" id="urlResult" style="margin-top:10px"></div>
+  </section>
+
+  <!-- PLAYLIST -->
+  <section id="tab-playlist">
+    <h2>Retrieve playlist</h2>
+    <input type="text" id="plInput" placeholder="playlist id or suno.com/playlist/... url">
+    <div>
+      <button class="act" id="plSimpleBtn">Fetch simple (page 0)</button>
+      <button class="act" id="plFullBtn">Fetch full (exhaust pagination)</button>
+    </div>
+    <p class="mut">Live fetch calls <code>studio-api.suno.ai</code> first, then falls back to scraping and RSC-parsing the public playlist page &mdash; same pattern as a single-clip fetch. This will only succeed if your browser context isn't blocked by CORS for suno.com (e.g. running inside a userscript on the site itself). If it fails, paste the page's HTML / RSC text below instead.</p>
+    <label>Paste playlist page HTML or RSC text (fallback / offline path)</label>
+    <textarea id="plPaste" placeholder="paste raw HTML here"></textarea>
+    <div><button class="act sec" id="plParseBtn">Parse pasted text</button></div>
+    <div class="log" id="plLog" style="display:none"></div>
+    <div id="plResult"></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="tab-settings">
+    <h2>URL templates</h2>
+    <p class="mut">{id} is substituted. Confirmed from Suno's current site: song page and cdn1 mp3. Share/playlist/video/image templates are best-guess &mdash; adjust here if Suno's format differs from what you see in practice.</p>
+    <div id="tplFields" class="grid2"></div>
+    <h2 style="margin-top:16px">API endpoints (used by live playlist fetch)</h2>
+    <div id="epFields" class="grid2"></div>
+    <div><button class="act" id="settingsSaveBtn">Save</button> <button class="act sec" id="settingsResetBtn">Reset to defaults</button></div>
+  </section>
+
+</main>
+
+<script>
+/* ============================================================
+   SunoLib — portable core. No DOM, no localStorage.
+   Copy this whole IIFE verbatim into a Node module if you need
+   the same parsing/URL logic on a backend.
+   ============================================================ */
+const SunoLib = (() => {
+
+  const UUID_RE = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+
+  // NOTE: there is no "share" entry here. Share links (suno.com/s/{code}) use a short
+  // redirect code that is a different namespace from the song's UUID — it can't be
+  // derived from the id, only resolved *from* a share link back to the id (see
+  // extractShareCode / resolveShareUrl below).
+  const defaultTemplates = () => ({
+    song: 'https://suno.com/song/{id}',
+    cdn1Audio: 'https://cdn1.suno.ai/{id}.mp3', cdn1Video: 'https://cdn1.suno.ai/{id}.mp4',
+    cdn2Image: 'https://cdn2.suno.ai/image_{id}.jpeg', cdn2ImageLarge: 'https://cdn2.suno.ai/image_large_{id}.jpeg',
+    playlist: 'https://suno.com/playlist/{id}',
+  })
+
+  const defaultEndpoints = () => ({
+    clipApi: 'https://studio-api.suno.ai/api/clip/{id}',
+    playlistApi: 'https://studio-api.suno.ai/api/playlist/{id}?page={page}',
+    playlistPage: 'https://suno.com/playlist/{id}',
+    shareRedirect: 'https://suno.com/s/{code}',
+  })
+
+  const fill = (tpl, vals) => Object.keys(vals).reduce((s, k) => s.split(`{${k}}`).join(vals[k]), tpl)
+
+  // Pull a Suno UUID out of a bare id, any recognized suno/cdn url, or fall back to
+  // scanning the string for the first uuid-shaped substring.
+  function extractId(input) {
+    if (!input) return null
+    const s = String(input).trim()
+    if (new RegExp(`^${UUID_RE}$`, 'i').test(s)) return s.toLowerCase()
+    const patterns = [
+      new RegExp(`suno\\.com/song/(${UUID_RE})`, 'i'),
+      new RegExp(`suno\\.com/playlist/(${UUID_RE})`, 'i'),
+      new RegExp(`cdn1\\.suno\\.ai/(${UUID_RE})`, 'i'),
+      new RegExp(`image(?:_large)?_(${UUID_RE})`, 'i'),
+    ]
+    for (const re of patterns) { const m = s.match(re); if (m) return m[1].toLowerCase() }
+    const generic = s.match(new RegExp(UUID_RE, 'i'))
+    return generic ? generic[0].toLowerCase() : null
+  }
+
+  // Share links (suno.com/s/{code}) carry a short redirect code, not the song's uuid.
+  function extractShareCode(input) {
+    if (!input) return null
+    const m = String(input).trim().match(/suno\.com\/s\/([A-Za-z0-9_-]+)/i)
+    return m ? m[1] : null
+  }
+
+  // Follows the share-link redirect to recover the real song id. Requires the browser
+  // to actually be able to fetch suno.com (see CORS note in the UI) — if that fails,
+  // the caller should fall back to asking the person to open the link and paste back
+  // whatever suno.com/song/... URL it lands on.
+  async function resolveShareUrl(codeOrUrl, opts = {}) {
+    const endpoints = opts.endpoints || defaultEndpoints()
+    const code = extractShareCode(codeOrUrl) || codeOrUrl
+    const url = fill(endpoints.shareRedirect, { code })
+    try {
+      const res = await fetch(url, { redirect: 'follow' })
+      const id = extractId(res.url)
+      return { ok: !!id, resolvedUrl: res.url, id, status: res.status }
+    } catch (e) {
+      return { ok: false, error: e.message || String(e) }
+    }
+  }
+
+  function buildUrls(id, templates = defaultTemplates()) {
+    return {
+      id,
+      sunoUrl: fill(templates.song, { id }),
+      cdn1Url: fill(templates.cdn1Audio, { id }),
+      cdn1VideoUrl: fill(templates.cdn1Video, { id }),
+      imageUrl: fill(templates.cdn2Image, { id }),
+      imageLargeUrl: fill(templates.cdn2ImageLarge, { id }),
+    }
+  }
+
+  // Accepts either a bare clip object, or a wrapped {clip, log, source} shape like the
+  // page-scrape demo blob. Never merges the two shapes — just tells you which one it is.
+  function unwrap(input) {
+    if (input && typeof input === 'object' && input.clip && typeof input.clip === 'object') {
+      return { raw: input.clip, log: input.log || [], source: input.source || null }
+    }
+    return { raw: input, log: [], source: null }
+  }
+
+  function deriveSimple(raw, id) {
+    const metadata = raw?.metadata || {}
+    return {
+      title: raw?.title ?? null,
+      author: raw?.display_name ?? raw?.handle ?? null,
+      sunoId: id,
+      cdn1Url: raw?.audio_url || buildUrls(id).cdn1Url,
+      imageUrl: raw?.image_url ?? null,
+      duration: metadata.duration ?? null,
+      tags: metadata.tags ?? raw?.display_tags ?? null,
+    }
+  }
+
+  // Single-pass, string-aware brace matcher. Finds every balanced {...} object in `text`
+  // (nested ones too) and JSON.parses the ones that mention any of requiredKeys.
+  function extractJsonObjects(text, requiredKeys = []) {
+    const results = []
+    const starts = []
+    let inString = false, escaped = false
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i]
+      if (inString) {
+        if (escaped) escaped = false
+        else if (ch === '\\') escaped = true
+        else if (ch === '"') inString = false
+        continue
+      }
+      if (ch === '"') { inString = true; continue }
+      if (ch === '{') { starts.push(i); continue }
+      if (ch === '}') {
+        const start = starts.pop()
+        if (start === undefined) continue
+        const candidate = text.slice(start, i + 1)
+        if (requiredKeys.length === 0 || requiredKeys.some(k => candidate.includes(k))) {
+          try { results.push(JSON.parse(candidate)) } catch (e) { /* not standalone JSON, skip */ }
+        }
+      }
+    }
+    return results
+  }
+
+  // Next.js app-router streams page data via self.__next_f.push([idx, "json-string"])
+  // calls embedded in <script> tags. Concatenate the string parts in index order, then
+  // hunt for embedded clip/song objects in the reassembled blob.
+  function extractNextRSC(html, requiredKeys = ['entity_type', 'audio_url']) {
+    const chunkRe = /self\.__next_f\.push\(\[(\d+),\s*("(?:[^"\\]|\\.)*")\]\)/g
+    const byIndex = {}
+    let m
+    while ((m = chunkRe.exec(html)) !== null) {
+      const idx = Number(m[1])
+      let str
+      try { str = JSON.parse(m[2]) } catch (e) { continue }
+      byIndex[idx] = (byIndex[idx] || '') + str
+    }
+    const combined = Object.keys(byIndex).sort((a, b) => a - b).map(k => byIndex[k]).join('')
+    return { combined, objects: extractJsonObjects(combined, requiredKeys), chunkCount: Object.keys(byIndex).length }
+  }
+
+  // ---- network retrieval (browser fetch; works unchanged under Node 18+ fetch) ----
+
+  async function fetchSongMeta(idOrUrl, opts = {}) {
+    const id = extractId(idOrUrl) || idOrUrl
+    const endpoints = opts.endpoints || defaultEndpoints()
+    const log = []
+    const apiUrl = fill(endpoints.clipApi, { id })
+    log.push(`trying ${apiUrl}`)
+    try {
+      const res = await fetch(apiUrl)
+      log.push(`  -> HTTP ${res.status}`)
+      if (res.ok) return { source: 'clip-api', raw: await res.json(), log, id }
+    } catch (e) { log.push(`  -> ${e.message || e}`) }
+    const pageUrl = fill(defaultTemplates().song, { id })
+    log.push(`trying ${pageUrl}`)
+    try {
+      const res = await fetch(pageUrl)
+      log.push(`  -> HTTP ${res.status}`)
+      if (!res.ok) throw new Error(`page fetch failed: ${res.status}`)
+      const html = await res.text()
+      const rsc = extractNextRSC(html)
+      log.push(`found ${rsc.objects.length} matching RSC chunk object(s) across ${rsc.chunkCount} chunk(s)`)
+      return { source: 'page-scrape:RSC-chunk', raw: rsc.objects[0] || null, log, id }
+    } catch (e) {
+      log.push(`  -> ${e.message || e}`)
+      return { source: 'failed', raw: null, log, id }
+    }
+  }
+
+  async function fetchPlaylistSimple(idOrUrl, opts = {}) {
+    const id = extractId(idOrUrl) || idOrUrl
+    const endpoints = opts.endpoints || defaultEndpoints()
+    const page = opts.page ?? 0
+    const log = []
+    const apiUrl = fill(endpoints.playlistApi, { id, page })
+    log.push(`trying ${apiUrl}`)
+    try {
+      const res = await fetch(apiUrl)
+      log.push(`  -> HTTP ${res.status}`)
+      if (res.ok) return { source: 'playlist-api', raw: await res.json(), log, id, page }
+    } catch (e) { log.push(`  -> ${e.message || e}`) }
+    const pageUrl = fill(endpoints.playlistPage, { id })
+    log.push(`trying ${pageUrl}`)
+    try {
+      const res = await fetch(pageUrl)
+      log.push(`  -> HTTP ${res.status}`)
+      if (!res.ok) throw new Error(`page fetch failed: ${res.status}`)
+      const html = await res.text()
+      const rsc = extractNextRSC(html, ['entity_type', 'song_schema', 'audio_url'])
+      log.push(`found ${rsc.objects.length} matching RSC chunk object(s) across ${rsc.chunkCount} chunk(s)`)
+      return { source: 'page-scrape:RSC-chunk', raw: rsc.objects, log, id, page }
+    } catch (e) {
+      log.push(`  -> ${e.message || e}`)
+      return { source: 'failed', raw: null, log, id, page }
+    }
+  }
+
+  async function fetchPlaylistFull(idOrUrl, opts = {}) {
+    const maxPages = opts.maxPages ?? 50
+    const pages = []
+    let page = 0
+    while (page < maxPages) {
+      const result = await fetchPlaylistSimple(idOrUrl, { ...opts, page })
+      pages.push(result)
+      if (opts.onPage) opts.onPage(result, page)
+      const isEmpty = !result.raw || (Array.isArray(result.raw) && result.raw.length === 0)
+      if (result.source === 'failed' || isEmpty) break
+      page++
+    }
+    return { pages, exhausted: page < maxPages, pageCount: pages.length }
+  }
+
+  return {
+    UUID_RE, defaultTemplates, defaultEndpoints, fill, extractId, extractShareCode, resolveShareUrl, buildUrls, unwrap, deriveSimple,
+    extractJsonObjects, extractNextRSC, fetchSongMeta, fetchPlaylistSimple, fetchPlaylistFull,
+  }
+})()
+
+/* ============================================================
+   Store — the only browser-specific layer (localStorage).
+   Swap this out for a DB/file adapter on a backend; SunoLib
+   above doesn't know or care how records get persisted.
+   ============================================================ */
+const Store = {
+  KEY: 'sunoLib.store.v1',
+  empty: () => ({ nextOurId: 1, songs: {}, playlists: {}, settings: { templates: SunoLib.defaultTemplates(), endpoints: SunoLib.defaultEndpoints() } }),
+  load() { try { return { ...Store.empty(), ...JSON.parse(localStorage.getItem(Store.KEY)) } } catch (e) { return Store.empty() } },
+  save(store) { localStorage.setItem(Store.KEY, JSON.stringify(store)) },
+}
+
+// Adds/updates one song. `full` and `playlist` retrievals are kept as two separate raw
+// blobs on the record (never merged) — `simple` is just a convenience view recomputed
+// from whichever blob is richer.
+function addOrUpdateSong(store, input, opts = {}) {
+  const { raw, log, source } = SunoLib.unwrap(input)
+  const id = raw?.id || SunoLib.extractId(JSON.stringify(raw))
+  if (!id) return null
+  const effSource = opts.source && opts.source !== 'auto' ? opts.source : (source || 'manual')
+  const slot = effSource === 'playlist' ? 'playlistBlob' : 'fullBlob'
+  const existing = store.songs[id]
+  const record = existing || { ourId: store.nextOurId++, sunoId: id }
+  record[slot] = { retrievedAt: new Date().toISOString(), source: effSource, log: opts.log || log, raw }
+  const preferred = record.fullBlob?.raw || record.playlistBlob?.raw
+  record.simple = SunoLib.deriveSimple(preferred, id)
+  record.urls = SunoLib.buildUrls(id, store.settings.templates)
+  store.songs[id] = record
+  return record
+}
+
+function addOrUpdatePlaylistPage(store, playlistId, pageResult) {
+  const id = SunoLib.extractId(playlistId) || playlistId
+  const existing = store.playlists[id]
+  const record = existing || { ourId: store.nextOurId++, sunoPlaylistId: id, pages: [], urls: SunoLib.buildUrls(id, store.settings.templates) }
+  record.pages.push(pageResult) // raw, per fetch attempt — kept, not de-duplicated
+  record.lastFetchedAt = new Date().toISOString()
+  store.playlists[id] = record
+  const items = Array.isArray(pageResult.raw) ? pageResult.raw : (pageResult.raw ? [pageResult.raw] : [])
+  items.forEach(item => addOrUpdateSong(store, item, { source: 'playlist' }))
+  return record
+}
+
+/* ============================================================
+   UI glue
+   ============================================================ */
+let store = Store.load()
+const $ = sel => document.querySelector(sel)
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]))
+
+// -- tabs --
+document.querySelectorAll('#tabs button').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.remove('active'))
+  document.querySelectorAll('main > section').forEach(s => s.classList.remove('active'))
+  btn.classList.add('active')
+  $('#tab-' + btn.dataset.tab).classList.add('active')
+}))
+
+// -- library tab --
+function renderLibrary() {
+  const songs = Object.values(store.songs)
+  const filter = ($('#librarySearch').value || '').toLowerCase()
+  const rows = songs
+    .filter(r => !filter || [r.simple?.title, r.simple?.author, r.sunoId].some(v => (v || '').toLowerCase().includes(filter)))
+    .sort((a, b) => a.ourId - b.ourId)
+    .map(r => `<tr>
+        <td>${r.ourId}</td>
+        <td>${esc(r.simple?.title)}</td>
+        <td>${esc(r.simple?.author)}</td>
+        <td class="id"><a href="${r.urls.sunoUrl}" target="_blank">${r.sunoId}</a></td>
+        <td>${r.fullBlob ? '<span class="pill">full</span>' : ''}${r.playlistBlob ? '<span class="pill">playlist</span>' : ''}</td>
+        <td><a href="${r.simple.cdn1Url}" target="_blank">mp3</a></td>
+      </tr>`).join('')
+  $('#songCount').textContent = songs.length
+  $('#playlistCount').textContent = Object.keys(store.playlists).length
+  $('#songTable').innerHTML = songs.length
+    ? `<table><tr><th>#</th><th>title</th><th>author</th><th>suno id</th><th>blobs</th><th>audio</th></tr>${rows}</table>`
+    : '<p class="mut">No songs yet — add one on the "Add / Batch" tab.</p>'
+}
+$('#librarySearch').addEventListener('input', renderLibrary)
+$('#exportBtn').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(store, null, 2)], { type: 'application/json' })
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'suno-library.json' })
+  a.click()
+})
+$('#importBtn').addEventListener('click', () => $('#importFile').click())
+$('#importFile').addEventListener('change', e => {
+  const file = e.target.files[0]
+  if (!file) return
+  file.text().then(text => { store = { ...Store.empty(), ...JSON.parse(text) }; Store.save(store); renderLibrary() })
+})
+$('#clearBtn').addEventListener('click', () => {
+  if (!confirm('Delete the entire local library? This cannot be undone.')) return
+  store = Store.empty(); Store.save(store); renderLibrary()
+})
+
+// -- add / batch tab --
+$('#addBtn').addEventListener('click', () => {
+  const logEl = $('#addLog')
+  logEl.style.display = 'block'
+  let parsed
+  try { parsed = JSON.parse($('#addInput').value) } catch (e) { logEl.textContent = 'Invalid JSON: ' + e.message; return }
+  const sourceSel = $('#addSource').value
+  const items = Array.isArray(parsed) ? parsed : [parsed]
+  const results = items.map(item => addOrUpdateSong(store, item, { source: sourceSel === 'auto' ? (Array.isArray(parsed) ? 'batch' : 'auto') : sourceSel }))
+  Store.save(store)
+  logEl.textContent = `added/updated ${results.filter(Boolean).length} of ${items.length} item(s)\n` +
+    results.map(r => r ? `#${r.ourId}  ${r.sunoId}  "${r.simple.title}"` : '  (skipped — no id found)').join('\n')
+  renderLibrary()
+})
+
+// -- url tool tab --
+function renderResolvedUrls(id, extra) {
+  const urls = SunoLib.buildUrls(id, store.settings.templates)
+  const rows = Object.entries(urls).map(([k, v]) => `<div><b>${k}</b></div><div class="id"><a href="${v}" target="_blank">${v}</a></div>`).join('')
+  $('#urlResult').innerHTML = (extra || '') + rows
+}
+$('#urlResolveBtn').addEventListener('click', async () => {
+  const input = $('#urlInput').value
+  const box = $('#urlResult')
+  const id = SunoLib.extractId(input)
+  if (id) { renderResolvedUrls(id); return }
+  const shareCode = SunoLib.extractShareCode(input)
+  if (!shareCode) { box.innerHTML = '<p class="mut">Could not find a Suno id or share code in that input.</p>'; return }
+  box.innerHTML = '<p class="mut">Share link detected — following the redirect to find the real id&hellip;</p>'
+  const result = await SunoLib.resolveShareUrl(shareCode, { endpoints: store.settings.endpoints })
+  if (result.ok) { renderResolvedUrls(result.id, `<div><b>resolved from share code</b></div><div class="id">${esc(shareCode)}</div>`); return }
+  box.innerHTML = `<p class="mut">Could not follow the redirect from here (${esc(result.error || 'blocked')})` +
+    ` &mdash; likely CORS. Open the link below, then paste the resulting suno.com/song/... URL back into the box above and hit Resolve again.</p>` +
+    `<p><a href="https://suno.com/s/${esc(shareCode)}" target="_blank">https://suno.com/s/${esc(shareCode)}</a></p>`
+})
+
+// -- playlist tab --
+function plLog(lines) { const el = $('#plLog'); el.style.display = 'block'; el.textContent += lines.join('\n') + '\n' }
+function renderPlaylistResult(id) {
+  const rec = store.playlists[id]
+  if (!rec) return
+  const songIds = rec.pages.flatMap(p => (Array.isArray(p.raw) ? p.raw : (p.raw ? [p.raw] : [])).map(x => x.id || SunoLib.extractId(JSON.stringify(x))).filter(Boolean))
+  $('#plResult').innerHTML = `<p>Playlist <b>${id}</b> &mdash; ${rec.pages.length} page(s) fetched, ${songIds.length} song reference(s) seen (raw, not de-duplicated).</p>`
+}
+$('#plSimpleBtn').addEventListener('click', async () => {
+  $('#plLog').textContent = ''
+  const input = $('#plInput').value.trim()
+  const result = await SunoLib.fetchPlaylistSimple(input, { endpoints: store.settings.endpoints })
+  plLog(result.log)
+  const id = SunoLib.extractId(input) || input
+  addOrUpdatePlaylistPage(store, id, result)
+  Store.save(store)
+  renderLibrary(); renderPlaylistResult(id)
+})
+$('#plFullBtn').addEventListener('click', async () => {
+  $('#plLog').textContent = ''
+  const input = $('#plInput').value.trim()
+  const id = SunoLib.extractId(input) || input
+  await SunoLib.fetchPlaylistFull(input, {
+    endpoints: store.settings.endpoints,
+    onPage: (result, page) => { plLog([`-- page ${page} --`, ...result.log]); addOrUpdatePlaylistPage(store, id, result); Store.save(store); renderLibrary(); renderPlaylistResult(id) },
+  })
+})
+$('#plParseBtn').addEventListener('click', () => {
+  $('#plLog').textContent = ''
+  const html = $('#plPaste').value
+  const rsc = SunoLib.extractNextRSC(html, ['entity_type', 'song_schema', 'audio_url'])
+  const result = { source: 'manual-paste:RSC-chunk', raw: rsc.objects, log: [`found ${rsc.objects.length} matching RSC chunk object(s) across ${rsc.chunkCount} chunk(s)`] }
+  plLog(result.log)
+  const input = $('#plInput').value.trim()
+  const id = SunoLib.extractId(input) || input || 'unknown-playlist'
+  addOrUpdatePlaylistPage(store, id, result)
+  Store.save(store)
+  renderLibrary(); renderPlaylistResult(id)
+})
+
+// -- settings tab --
+function renderSettings() {
+  const tplLabels = { song: 'song page', share: 'share link', cdn1Audio: 'cdn1 audio (mp3)', cdn1Video: 'cdn1 video (mp4)', cdn2Image: 'cdn2 image', cdn2ImageLarge: 'cdn2 image (large)', playlist: 'playlist page' }
+  $('#tplFields').innerHTML = Object.entries(store.settings.templates).map(([k, v]) =>
+    `<label>${tplLabels[k] || k}</label><input type="text" data-tpl="${k}" value="${esc(v)}">`).join('')
+  const epLabels = { clipApi: 'single clip API', playlistApi: 'playlist API (page-based)', playlistPage: 'playlist page (HTML fallback)', shareRedirect: 'share link redirect (suno.com/s/{code})' }
+  $('#epFields').innerHTML = Object.entries(store.settings.endpoints).map(([k, v]) =>
+    `<label>${epLabels[k] || k}</label><input type="text" data-ep="${k}" value="${esc(v)}">`).join('')
+}
+$('#settingsSaveBtn').addEventListener('click', () => {
+  document.querySelectorAll('[data-tpl]').forEach(inp => store.settings.templates[inp.dataset.tpl] = inp.value)
+  document.querySelectorAll('[data-ep]').forEach(inp => store.settings.endpoints[inp.dataset.ep] = inp.value)
+  Store.save(store)
+  renderLibrary()
+})
+$('#settingsResetBtn').addEventListener('click', () => {
+  store.settings = { templates: SunoLib.defaultTemplates(), endpoints: SunoLib.defaultEndpoints() }
+  Store.save(store); renderSettings()
+})
+
+renderLibrary()
+renderSettings()
+</script>
+</body>
+</html>
