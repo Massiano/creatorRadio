@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Creator Radio Live (Render Version)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background: #121212; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+    .player-card { background: #1e1e1e; padding: 24px; border-radius: 12px; width: 360px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+    .status-badge { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #1db954; font-weight: bold; margin-bottom: 8px; }
+    h2 { margin: 0 0 16px 0; font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .progress-container { background: #333; height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+    .progress-bar { background: #1db954; height: 100%; width: 0%; transition: width 0.1s linear; }
+    .time-stamps { display: flex; justify-content: space-between; font-size: 12px; color: #aaa; margin-bottom: 16px; }
+    .controls-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; background: #282828; padding: 8px 12px; border-radius: 8px; }
+    .icon-btn { background: transparent; border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 6px; border-radius: 50%; transition: background 0.2s, color 0.2s; }
+    .icon-btn:hover { background: #333; color: #1db954; }
+    .icon-btn svg { width: 20px; height: 20px; fill: currentColor; }
+    .main-play-btn { width: 100%; padding: 12px; border: none; border-radius: 6px; background: #1db954; color: #fff; font-weight: bold; cursor: pointer; margin-bottom: 16px; }
+    .main-play-btn:hover { background: #1ed760; }
+    .volume-container { display: flex; align-items: center; gap: 8px; flex-grow: 1; }
+    .volume-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 2px; background: #555; outline: none; cursor: pointer; }
+    .volume-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #1db954; cursor: pointer; }
+    .up-next { border-top: 1px solid #333; padding-top: 12px; }
+    .up-next h4 { margin: 0 0 8px 0; color: #888; font-size: 12px; text-transform: uppercase; }
+    .up-next-item { font-size: 14px; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .server-config { background: #2a1414; border: 1px solid #5c2b2b; border-radius: 8px; padding: 12px; margin-bottom: 16px; }
+    .server-config p { margin: 0 0 8px 0; font-size: 13px; color: #f77; }
+    .server-config input { width: 100%; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #444; background: #111; color: #fff; margin-bottom: 8px; font-size: 13px; }
+    .server-config button { width: 100%; padding: 8px; border: none; border-radius: 6px; background: #1db954; color: #fff; font-weight: bold; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<div class="player-card">
+  <div class="status-badge" id="live-badge">● Off-Air</div>
+  <div class="server-config" id="server-config" style="display: none;"><p>Can't reach the radio server.</p><input type="text" id="server-url-input" placeholder="https://your-server.onrender.com"><button onclick="applyServerUrl()">Connect</button></div>
+  <button class="main-play-btn" id="play-btn" onclick="startRadio()">Listen Live</button>
+  <h2 id="song-title">Connecting...</h2>
+  <div class="progress-container"><div class="progress-bar" id="progress-bar"></div></div>
+  <div class="time-stamps"><span id="current-time">0:00</span><span id="duration">0:00</span></div>
+  <div class="controls-bar" id="controls-bar" style="display: none;">
+    <button class="icon-btn" id="mute-btn" onclick="toggleMute()" title="Mute/Unmute"><svg id="volume-icon" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg></button>
+    <div class="volume-container"><input type="range" class="volume-slider" id="volume-slider" min="0" max="1" step="0.01" value="1" oninput="handleVolumeChange(this.value)"></div>
+    <button class="icon-btn" id="skip-btn" onclick="skipTrack()" title="Skip Track"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+  </div>
+  <div class="up-next"><h4>Up Next</h4><div class="up-next-item" id="next-title">--</div></div>
+</div>
+
+<audio id="audio-a" crossorigin="anonymous" preload="auto"></audio>
+<audio id="audio-b" crossorigin="anonymous" preload="auto"></audio>
+
+<script>
+  const DEFAULT_BASE_URL = 'https://creatorradio.onrender.com', SERVER_URL_STORAGE_KEY = 'creatorRadioServerUrl';
+  let BASE_URL, API_ENDPOINT, SKIP_ENDPOINT;
+
+  function setBaseUrl(url) { BASE_URL = url.replace(/\/+$/, ''); API_ENDPOINT = `${BASE_URL}/api/radio`; SKIP_ENDPOINT = `${BASE_URL}/api/radio/skip243756`; }
+  setBaseUrl(localStorage.getItem(SERVER_URL_STORAGE_KEY) || DEFAULT_BASE_URL);
+
+  const audioA = document.getElementById('audio-a'), audioB = document.getElementById('audio-b');
+  let activeAudio = audioA, bufferAudio = audioB;
+
+  const playBtn = document.getElementById('play-btn'), songTitle = document.getElementById('song-title'), nextTitle = document.getElementById('next-title'), progressBar = document.getElementById('progress-bar'), currentTimeEl = document.getElementById('current-time'), durationEl = document.getElementById('duration'), liveBadge = document.getElementById('live-badge'), volumeSlider = document.getElementById('volume-slider'), controlsBar = document.getElementById('controls-bar'), serverConfig = document.getElementById('server-config'), serverUrlInput = document.getElementById('server-url-input'), volumeIcon = document.getElementById('volume-icon');
+
+  const SVG_VOLUME_HIGH = `<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>`;
+  const SVG_VOLUME_MUTED = `<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>`;
+
+  let lastActiveVolume = 1.0, isMuted = false, currentSchedule = null, serverTimeOffset = 0, isListening = false, isSyncing = false, currentVersion = null;
+
+  function formatTime(seconds) { if (isNaN(seconds) || seconds < 0) return "0:00"; const mins = Math.floor(seconds / 60), secs = Math.floor(seconds % 60); return `${mins}:${secs < 10 ? '0' : ''}${secs}`; }
+
+  function applyVolumeSettings() { [activeAudio, bufferAudio].forEach(a => { a.muted = isMuted; a.volume = isMuted ? 0 : lastActiveVolume; }); }
+
+  function setVolumeIcon() { volumeIcon.innerHTML = isMuted ? SVG_VOLUME_MUTED : SVG_VOLUME_HIGH; }
+
+  function handleVolumeChange(val) { const numericVal = parseFloat(val); isMuted = numericVal === 0; if (!isMuted) lastActiveVolume = numericVal; setVolumeIcon(); applyVolumeSettings(); }
+
+  function toggleMute() { isMuted = !isMuted; volumeSlider.value = isMuted ? 0 : lastActiveVolume; setVolumeIcon(); applyVolumeSettings(); }
+
+  function showServerConfig() { serverConfig.style.display = 'block'; playBtn.style.display = 'none'; controlsBar.style.display = 'none'; liveBadge.textContent = '● Off-Air'; songTitle.textContent = 'Server unreachable'; serverUrlInput.value = BASE_URL; }
+
+  function hideServerConfig() { serverConfig.style.display = 'none'; playBtn.style.display = isListening ? 'none' : 'block'; }
+
+  function markServerReachable() { if (serverConfig.style.display !== 'none') hideServerConfig(); localStorage.setItem(SERVER_URL_STORAGE_KEY, BASE_URL); }
+
+  function applyServerUrl() { const val = serverUrlInput.value.trim(); if (!val) return; setBaseUrl(val); currentVersion = null; songTitle.textContent = 'Connecting...'; syncSchedule(); }
+
+  function handleSkipFailure(err) { console.error("Error skipping track:", err); showServerConfig(); }
+
+  async function skipTrack() { try { const res = await fetch(SKIP_ENDPOINT, { method: 'POST' }); if (!res.ok) throw new Error(`HTTP Error: ${res.status}`); currentVersion = null; await syncSchedule(); } catch (err) { handleSkipFailure(err); } }
+
+  function updateTrackInfo() { if (!currentSchedule) return; songTitle.textContent = currentSchedule.current.title || "Untitled Track"; durationEl.textContent = formatTime(currentSchedule.current.duration); nextTitle.textContent = currentSchedule.up_next?.[0]?.title || "--"; }
+
+  function preloadNextTrack() { const nextTrack = currentSchedule?.up_next?.[0]; if (!nextTrack || bufferAudio.src === nextTrack.audio_url) return; bufferAudio.src = nextTrack.audio_url; bufferAudio.load(); }
+
+  function swapBuffers() { activeAudio.pause(); activeAudio.currentTime = 0; [activeAudio, bufferAudio] = [bufferAudio, activeAudio]; applyVolumeSettings(); }
+
+  function playActiveFrom(targetOffset) { applyVolumeSettings(); activeAudio.currentTime = Math.max(0, targetOffset); activeAudio.play().catch(e => console.log("Playback gesture needed:", e)); }
+
+  function switchToTrack(currentTrack, targetOffset) { if (bufferAudio.src === currentTrack.audio_url) swapBuffers(); else { activeAudio.src = currentTrack.audio_url; activeAudio.load(); } playActiveFrom(targetOffset); }
+
+  function correctDriftAndResume(targetOffset) { if (Math.abs(activeAudio.currentTime - targetOffset) > 0.8) activeAudio.currentTime = Math.max(0, targetOffset); if (activeAudio.paused) playActiveFrom(targetOffset); }
+
+  function alignPlayback() { if (!currentSchedule || !isListening) return; const currentTrack = currentSchedule.current; const targetOffset = (Date.now() / 1000) + serverTimeOffset - currentTrack.starts_at; if (activeAudio.src !== currentTrack.audio_url) return switchToTrack(currentTrack, targetOffset); correctDriftAndResume(targetOffset); }
+
+  function advanceToNextTrack() { swapBuffers(); activeAudio.play().catch(e => console.log("Playback gesture needed:", e)); }
+
+  function handleSongEnd() { if (currentSchedule?.up_next?.length > 0) advanceToNextTrack(); currentVersion = null; syncSchedule(); }
+
+  audioA.addEventListener('ended', handleSongEnd); audioB.addEventListener('ended', handleSongEnd);
+
+  async function fetchSchedule() { const url = currentVersion ? `${API_ENDPOINT}?schedule_version=${currentVersion}` : API_ENDPOINT; const res = await fetch(url); if (!res.ok) throw new Error(`HTTP Error: ${res.status}`); return res.json(); }
+
+  function applyScheduleData(data) { currentSchedule = data; updateTrackInfo(); preloadNextTrack(); }
+
+  function handleScheduleResponse(data) { markServerReachable(); serverTimeOffset = data.server_time_now - (Date.now() / 1000); if (data.schedule_version) currentVersion = data.schedule_version; if (data.current) applyScheduleData(data); if (isListening) alignPlayback(); }
+
+  function handleSyncFailure(err) { console.error("Radio sync error:", err); showServerConfig(); }
+
+  async function syncSchedule() { if (isSyncing) return; isSyncing = true; try { handleScheduleResponse(await fetchSchedule()); } catch (err) { handleSyncFailure(err); } finally { isSyncing = false; } }
+
+  function handleTrackFinished() { currentVersion = null; syncSchedule(); }
+
+  function updateProgressDisplay() { if (!currentSchedule) return; const currentTrack = currentSchedule.current; const elapsed = Math.max(0, (Date.now() / 1000) + serverTimeOffset - currentTrack.starts_at); if (elapsed >= currentTrack.duration) return handleTrackFinished(); progressBar.style.width = `${Math.min(100, (elapsed / currentTrack.duration) * 100)}%`; currentTimeEl.textContent = formatTime(elapsed); }
+
+  setInterval(updateProgressDisplay, 100);
+
+  function startRadio() { isListening = true; playBtn.style.display = 'none'; controlsBar.style.display = 'flex'; liveBadge.textContent = '● LIVE'; alignPlayback(); }
+
+  syncSchedule();
+  setInterval(syncSchedule, 8000);
+</script>
+
+</body>
+</html>
