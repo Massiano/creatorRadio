@@ -110,10 +110,10 @@ def compute_schedule(tracks, total_duration, now, skip_offset, lookahead=LOOKAHE
 import sys, platform
 
 
-@@app.route("/", methods=["GET"])
+@app.route("/", methods=["GET"])
 def serve_root():
     return send_from_directory("static", "simpleRadio.html")
-    
+
 @app.route("/diag", methods=["GET"])
 def diag():
     now = time.time()
