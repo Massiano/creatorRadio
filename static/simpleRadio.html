@@ -25,14 +25,13 @@
     .controls-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; background: #282828; padding: 8px 12px; border-radius: 8px; }
     .icon-btn { background: transparent; border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 6px; border-radius: 50%; }
     .icon-btn:hover { background: #333; color: #1db954; }
-    .icon-btn svg { width: 20px; height: 20px; fill: currentColor; }
+    .icon-btn svg { width: 20px; height: 20px; fill: currentColor; display: block; }
     .volume-container { display: flex; align-items: center; gap: 8px; flex-grow: 1; }
     .volume-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 2px; background: #555; outline: none; cursor: pointer; }
     .volume-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #1db954; cursor: pointer; }
     .up-next { border-top: 1px solid #333; padding-top: 12px; }
     .up-next h4 { margin: 0 0 8px 0; color: #888; font-size: 12px; text-transform: uppercase; }
     .up-next-item { font-size: 14px; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #texture * { transition: none !important; animation: none !important; }
   </style>
 </head>
 <body>
@@ -46,7 +45,12 @@
         <div class="progress-container"><div class="progress-bar" id="progress-bar"></div></div>
         <div class="time-stamps"><span id="current-time">0:00</span><span id="duration">0:00</span></div>
         <div class="controls-bar" id="controls-bar" style="display: none;">
-          <button class="icon-btn" id="mute-btn" onclick="toggleMute()" title="Mute/Unmute"><svg id="volume-icon" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg></button>
+          <button class="icon-btn" id="mute-btn" onclick="toggleMute()" title="Mute/Unmute">
+            <svg id="volume-icon" viewBox="0 0 24 24">
+              <!-- Default: speaker with soundwaves -->
+              <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+            </svg>
+          </button>
           <div class="volume-container"><input type="range" class="volume-slider" id="volume-slider" min="0" max="1" step="0.01" value="1" oninput="handleVolumeChange(this.value)"></div>
           <button class="icon-btn" id="skip-btn" onclick="skipTrack()" title="Skip Track"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
         </div>
@@ -79,8 +83,9 @@
 
     const playBtn = document.getElementById('play-btn'), songTitle = document.getElementById('song-title'), nextTitle = document.getElementById('next-title'), progressBar = document.getElementById('progress-bar'), currentTimeEl = document.getElementById('current-time'), durationEl = document.getElementById('duration'), liveBadge = document.getElementById('live-badge'), volumeSlider = document.getElementById('volume-slider'), controlsBar = document.getElementById('controls-bar'), serverConfig = document.getElementById('server-config'), serverUrlInput = document.getElementById('server-url-input'), volumeIcon = document.getElementById('volume-icon');
 
-    const SVG_VOLUME_HIGH = `<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>`;
-    const SVG_VOLUME_MUTED = `<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>`;
+    // SVG paths
+    const SVG_UNMUTED = '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>';
+    const SVG_MUTED = '<path d="M3 9v6h4l5 5V4L7 9H3z"/><line x1="15.5" y1="9" x2="20" y2="13.5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="20" y1="9" x2="15.5" y2="13.5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>';
 
     let lastActiveVolume = 1.0, isMuted = false, currentSchedule = null, serverTimeOffset = 0, isListening = false, isSyncing = false, currentVersion = null;
 
@@ -88,11 +93,17 @@
 
     function applyVolumeSettings() { [activeAudio, bufferAudio].forEach(a => { a.muted = isMuted; a.volume = isMuted ? 0 : lastActiveVolume; }); }
 
-    function setVolumeIcon() { volumeIcon.innerHTML = isMuted ? SVG_VOLUME_MUTED : SVG_VOLUME_HIGH; }
+    function updateMuteUI() { 
+      if (isMuted) {
+        volumeIcon.innerHTML = SVG_MUTED;
+      } else {
+        volumeIcon.innerHTML = SVG_UNMUTED;
+      }
+    }
 
-    function handleVolumeChange(val) { const numericVal = parseFloat(val); isMuted = numericVal === 0; if (!isMuted) lastActiveVolume = numericVal; setVolumeIcon(); applyVolumeSettings(); }
+    function handleVolumeChange(val) { const numericVal = parseFloat(val); isMuted = numericVal === 0; if (!isMuted) lastActiveVolume = numericVal; updateMuteUI(); applyVolumeSettings(); }
 
-    function toggleMute() { isMuted = !isMuted; volumeSlider.value = isMuted ? 0 : lastActiveVolume; setVolumeIcon(); applyVolumeSettings(); }
+    function toggleMute() { isMuted = !isMuted; volumeSlider.value = isMuted ? 0 : lastActiveVolume; updateMuteUI(); applyVolumeSettings(); }
 
     function showServerConfig() { serverConfig.style.display = 'block'; playBtn.style.display = 'none'; controlsBar.style.display = 'none'; liveBadge.textContent = '● Off-Air'; songTitle.textContent = 'Server unreachable'; serverUrlInput.value = BASE_URL; }
 
