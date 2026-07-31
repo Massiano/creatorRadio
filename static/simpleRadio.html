@@ -2,23 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Creator Radio Live v0.33</title>
+  <title>Creator Radio Live v0.34</title>
   <style>
-    :root { --card-width: 360px; --card-height: 520px; }
+    :root { --card-width: 360px; --card-height: 520px; --min-width: 280px; --min-height: 400px; }
     body { font-family: system-ui, -apple-system, sans-serif; background: #121212; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; overflow: hidden; }
     .viewport-scaler { display: flex; justify-content: center; align-items: center; width: 100vw; height: 100vh; box-sizing: border-box; padding: 16px; }
-    .player-card { background: #1e1e1e; padding: 24px; border-radius: 12px; width: var(--card-width); box-shadow: 0 8px 24px rgba(0,0,0,0.5); box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; flex-shrink: 0; }
-    @media (orientation: portrait) { .player-card { width: 90vw; max-width: 400px; min-width: 280px; } }
-    @media (orientation: landscape) { .player-card { height: 40vh; width: auto; aspect-ratio: 360 / 520; min-height: 320px; font-size: 0.9rem; } }
+    .player-card { background: #1e1e1e; padding: 24px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; flex-shrink: 0; }
+    @media (orientation: portrait) { .player-card { width: 90%; max-width: 400px; min-width: var(--min-width); min-height: var(--min-height); } }
+    @media (orientation: landscape) { .player-card { height: 40vh; width: auto; aspect-ratio: 360 / 520; min-height: var(--min-height); min-width: var(--min-width); font-size: 0.9rem; } }
     .status-badge { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #1db954; font-weight: bold; margin-bottom: 8px; }
     h2 { margin: 0 0 16px 0; font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .progress-container { background: #333; height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
     .progress-bar { background: #1db954; height: 100%; width: 0%; transition: width 0.1s linear; }
     .time-stamps { display: flex; justify-content: space-between; font-size: 12px; color: #aaa; margin-bottom: 16px; }
     .controls-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; background: #282828; padding: 8px 12px; border-radius: 8px; }
-    .icon-btn { background: transparent; border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 6px; border-radius: 50%; transition: background 0.2s, color 0.2s; }
+    .icon-btn { background: transparent; border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 6px; border-radius: 50%; transition: background 0.2s, color 0.2s; position: relative; }
     .icon-btn:hover { background: #333; color: #1db954; }
     .icon-btn svg { width: 20px; height: 20px; fill: currentColor; }
+    .mute-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; font-weight: bold; color: #fff; pointer-events: none; line-height: 1; }
     .main-play-btn { width: 100%; padding: 12px; border: none; border-radius: 6px; background: #1db954; color: #fff; font-weight: bold; cursor: pointer; margin-bottom: 16px; }
     .main-play-btn:hover { background: #1ed760; }
     .volume-container { display: flex; align-items: center; gap: 8px; flex-grow: 1; }
@@ -46,12 +47,10 @@
       <div class="time-stamps"><span id="current-time">0:00</span><span id="duration">0:00</span></div>
       <div class="controls-bar" id="controls-bar" style="display: none;">
         <button class="icon-btn" id="mute-btn" onclick="toggleMute()" title="Mute/Unmute">
-          <svg class="volume-icon high" viewBox="0 0 24 24">
+          <svg class="volume-icon" viewBox="0 0 24 24">
             <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" fill="currentColor"/>
           </svg>
-          <svg class="volume-icon muted" viewBox="0 0 24 24" style="display: none;">
-            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3z" fill="currentColor"/>
-          </svg>
+          <span class="mute-overlay" id="mute-overlay" style="display: none;">✕</span>
         </button>
         <div class="volume-container"><input type="range" class="volume-slider" id="volume-slider" min="0" max="1" step="0.01" value="1" oninput="handleVolumeChange(this.value)"></div>
         <button class="icon-btn" id="skip-btn" onclick="skipTrack()" title="Skip Track"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
@@ -76,8 +75,7 @@
 
   const playBtn = document.getElementById('play-btn'), songTitle = document.getElementById('song-title'), nextTitle = document.getElementById('next-title'), progressBar = document.getElementById('progress-bar'), currentTimeEl = document.getElementById('current-time'), durationEl = document.getElementById('duration'), liveBadge = document.getElementById('live-badge'), volumeSlider = document.getElementById('volume-slider'), controlsBar = document.getElementById('controls-bar'), serverConfig = document.getElementById('server-config'), serverUrlInput = document.getElementById('server-url-input');
 
-  const highIcon = document.querySelector('.volume-icon.high');
-  const mutedIcon = document.querySelector('.volume-icon.muted');
+  const muteOverlay = document.getElementById('mute-overlay');
 
   let lastActiveVolume = 1.0, isMuted = false, currentSchedule = null, serverTimeOffset = 0, isListening = false, isSyncing = false, currentVersion = null;
 
@@ -86,13 +84,7 @@
   function applyVolumeSettings() { [activeAudio, bufferAudio].forEach(a => { a.muted = isMuted; a.volume = isMuted ? 0 : lastActiveVolume; }); }
 
   function setVolumeIcon() {
-    if (isMuted) {
-      highIcon.style.display = 'none';
-      mutedIcon.style.display = 'block';
-    } else {
-      highIcon.style.display = 'block';
-      mutedIcon.style.display = 'none';
-    }
+    muteOverlay.style.display = isMuted ? 'block' : 'none';
   }
 
   function handleVolumeChange(val) { const numericVal = parseFloat(val); isMuted = numericVal === 0; if (!isMuted) lastActiveVolume = numericVal; setVolumeIcon(); applyVolumeSettings(); }
