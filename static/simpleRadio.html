@@ -47,11 +47,10 @@
         <div class="controls-bar" id="controls-bar" style="display: none;">
           <button class="icon-btn" id="mute-btn" onclick="toggleMute()" title="Mute/Unmute">
             <svg id="volume-icon" viewBox="0 0 24 24">
-              <!-- Default: speaker with soundwaves -->
               <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
             </svg>
           </button>
-          <div class="volume-container"><input type="range" class="volume-slider" id="volume-slider" min="0" max="1" step="0.01" value="1" oninput="handleVolumeChange(this.value)"></div>
+          <div class="volume-container"><input type="range" class="volume-slider" id="volume-slider" min="0" max="1" step="0.01"></div>
           <button class="icon-btn" id="skip-btn" onclick="skipTrack()" title="Skip Track"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
         </div>
         <div class="up-next"><h4>Up Next</h4><div class="up-next-item" id="next-title">--</div></div>
@@ -83,11 +82,17 @@
 
     const playBtn = document.getElementById('play-btn'), songTitle = document.getElementById('song-title'), nextTitle = document.getElementById('next-title'), progressBar = document.getElementById('progress-bar'), currentTimeEl = document.getElementById('current-time'), durationEl = document.getElementById('duration'), liveBadge = document.getElementById('live-badge'), volumeSlider = document.getElementById('volume-slider'), controlsBar = document.getElementById('controls-bar'), serverConfig = document.getElementById('server-config'), serverUrlInput = document.getElementById('server-url-input'), volumeIcon = document.getElementById('volume-icon');
 
-    // SVG paths
     const SVG_UNMUTED = '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>';
     const SVG_MUTED = '<path d="M3 9v6h4l5 5V4L7 9H3z"/><line x1="15.5" y1="9" x2="20" y2="13.5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="20" y1="9" x2="15.5" y2="13.5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>';
 
-    let lastActiveVolume = 1.0, isMuted = false, currentSchedule = null, serverTimeOffset = 0, isListening = false, isSyncing = false, currentVersion = null;
+    const INITIAL_VOLUME = 0.66;
+    let lastActiveVolume = INITIAL_VOLUME;
+    let isMuted = false;
+    let currentSchedule = null;
+    let serverTimeOffset = 0;
+    let isListening = false;
+    let isSyncing = false;
+    let currentVersion = null;
 
     function formatTime(seconds) { if (isNaN(seconds) || seconds < 0) return "0:00"; const mins = Math.floor(seconds / 60), secs = Math.floor(seconds % 60); return `${mins}:${secs < 10 ? '0' : ''}${secs}`; }
 
@@ -154,6 +159,11 @@
     setInterval(updateProgressDisplay, 100);
 
     function startRadio() { isListening = true; playBtn.style.display = 'none'; controlsBar.style.display = 'flex'; liveBadge.textContent = '● LIVE'; alignPlayback(); }
+
+    // Initialize volume
+    volumeSlider.value = INITIAL_VOLUME;
+    lastActiveVolume = INITIAL_VOLUME;
+    volumeSlider.addEventListener('input', function() { handleVolumeChange(this.value); });
 
     syncSchedule();
     setInterval(syncSchedule, 8000);
